@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crawlableseo"
+version = "0.1.0"
+description = "Make a client-rendered SPA crawlable from its own HTML shell: meta tags, JSON-LD, robots.txt, sitemap.xml and llms.txt from one declaration."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Yuliia Kulykivska" }]
+keywords = [
+    "seo",
+    "spa",
+    "crawler",
+    "sitemap",
+    "robots",
+    "llms-txt",
+    "json-ld",
+    "fastapi",
+    "starlette",
+    "indexnow",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+indexnow = ["httpx>=0.24"]
+fastapi = ["fastapi>=0.100"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "httpx>=0.24",
+    "fastapi>=0.100",
+]
+
+[project.urls]
+Homepage = "https://github.com/kulykivska/crawlableseo"
+Issues = "https://github.com/kulykivska/crawlableseo/issues"
+Changelog = "https://github.com/kulykivska/crawlableseo/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/crawlableseo"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src/crawlableseo"]
+
+[[tool.mypy.overrides]]
+module = ["fastapi.*", "httpx.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
