@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: mypy
+      - run: pytest -q
+
+  no_deps:
+    # The package must import and work with nothing else installed: the
+    # optional extras are optional.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - run: |
+          python - <<'PY'
+          from crawlableseo import Page, Site
+          site = Site("https://example.com", shell_html="<html><head><title>t</title></head><body><div id='root'></div></body></html>")
+          site.page("/", title="Home", description="A home page with a description.")
+          html, status = site.render("/")
+          assert status == 200 and "<title>Home</title>" in html
+          assert "Sitemap: https://example.com/sitemap.xml" in site.robots()
+          assert "<loc>https://example.com/</loc>" in site.sitemap()
+          print("ok")
+          PY
