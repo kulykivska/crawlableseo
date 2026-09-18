@@ -143,6 +143,38 @@ its outgoing links are still worth crawling. They are separate flags.
 mounts, the page paints, empties, then repaints: on one site that measured a
 cumulative layout shift of 0.28. Let the framework replace it.
 
+## Check an llms.txt
+
+`llms.txt` is a map of the site written for models. A file that is malformed is
+not read badly - it is read as nothing, silently, and the first sign is that no
+model ever cites you.
+
+```console
+$ crawlableseo llms check https://example.com/llms.txt
+https://example.com/llms.txt: valid llms.txt, nothing to report
+
+$ crawlableseo llms check dist/llms.txt --strict
+dist/llms.txt:7: warning [W_RELATIVE_URL] '/docs/start' is relative; this file is read
+  on its own, with no page to resolve it against
+dist/llms.txt:1 error(s), 1 warning(s)
+```
+
+It takes a path, an http(s) URL or `-` for standard input, prints `--json` for
+CI, and exits non-zero on errors (`--strict` makes warnings count too).
+
+Errors mean the file is not an llms.txt: no title, a second title, content
+before the title, a link with no URL, a broken entry among links - and HTML,
+which is what a site serves when the route was never added and the app's
+catch-all answered instead. That last one is the commonest failure of all.
+
+Warnings mean it is a valid file that will serve a model poorly: no summary
+line, a link with no description, a relative URL in a file read on its own, a
+duplicate URL or section, a section that lists nothing to fetch, an `## Optional`
+section that is not last - everything after it is skipped with it.
+
+What this library generates passes its own check; a test asserts it, because a
+generator and a validator that disagree mean one of them is wrong.
+
 ## Compatibility
 
 Python 3.10+. No required dependencies. `crawlableseo[indexnow]` adds `httpx`;

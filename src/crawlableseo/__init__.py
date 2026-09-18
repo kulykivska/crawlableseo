@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .head import head_block
 from .indexnow import IndexNow
+from .llmscheck import Finding, check_llms_txt, is_valid
 from .llmstxt import LlmsSection, llms_txt
 from .page import MAX_DESCRIPTION, MAX_TITLE, MIN_DESCRIPTION, NotFound, Page
 from .robots import DEFAULT_AI_CRAWLERS, robots_txt
@@ -17,7 +18,7 @@ from .site import DynamicUrl, Site
 from .sitemap import SitemapEntry, sitemap_xml
 from .urls import page_url
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "DEFAULT_AI_CRAWLERS",
@@ -26,6 +27,7 @@ __all__ = [
     "MAX_TITLE",
     "MIN_DESCRIPTION",
     "DynamicUrl",
+    "Finding",
     "IndexNow",
     "LlmsSection",
     "NotFound",
@@ -33,7 +35,9 @@ __all__ = [
     "Site",
     "SitemapEntry",
     "__version__",
+    "check_llms_txt",
     "head_block",
+    "is_valid",
     "llms_txt",
     "page_url",
     "render_shell",
