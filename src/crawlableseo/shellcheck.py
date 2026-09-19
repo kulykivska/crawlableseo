@@ -42,11 +42,49 @@ def _outside_comments(pattern: re.Pattern[str], text: str) -> re.Match[str] | No
     return None
 
 
-def check_shell(html: str, *, mount_id: str = "root") -> list[Finding]:
+# How much content in the mount node means "this page has already been filled"
+# rather than "this shell ships with a spinner".
+RENDERED_BODY_CHARS = 400
+
+
+def looks_rendered(html: str, mount_id: str = "root") -> bool:
+    """Whether this is a served page rather than a build's shell.
+
+    A filled mount node plus the tags the filling adds is what a URL returns,
+    and judging that against a shell's rules reports four problems that are not
+    problems. The check asks what it was given before it grades it.
+    """
+    filled = re.search(
+        ANY_MOUNT.format(id=re.escape(mount_id)) + r"(?P<body>.*?)</div>",
+        html,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if filled is None or len(filled.group("body").strip()) < RENDERED_BODY_CHARS:
+        return False
+    return _outside_comments(_CANONICAL_RE, html) is not None or (
+        _outside_comments(_OG_RE, html) is not None
+    )
+
+
+def check_shell(
+    html: str, *, mount_id: str = "root", as_shell: bool = False
+) -> list[Finding]:
     """Every problem in the shell, in the order they appear."""
     findings: list[Finding] = []
     if not html.strip():
         return [Finding(ERROR, "E_EMPTY", 0, "the shell is empty")]
+
+    if not as_shell and MARKER not in html and looks_rendered(html, mount_id):
+        return [
+            Finding(
+                WARNING,
+                "W_NOT_A_SHELL",
+                0,
+                "this looks like a page that has already been filled, not a build's "
+                "shell: check dist/index.html rather than a URL, or pass --as-shell "
+                "to grade it as one anyway",
+            )
+        ]
 
     if MARKER in html:
         # render_shell returns an already-marked template untouched, so every

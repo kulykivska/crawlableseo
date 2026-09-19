@@ -213,3 +213,42 @@ def test_the_mount_id_is_configurable_from_the_command(tmp_path: Path) -> None:
     path.write_text(SHELL.replace("id='root'", "id='app'"), encoding="utf-8")
     assert main(["shell", "check", str(path)]) == 1
     assert main(["shell", "check", str(path), "--mount-id", "app"]) == 0
+
+
+RENDERED = (
+    "<!doctype html><html><head><meta charset='utf-8'>"
+    "<title>Pricing | Example</title><meta name='description' content='Plans.'>"
+    "<link rel='canonical' href='https://example.com/pricing'>"
+    "<meta property='og:title' content='Pricing'>"
+    "</head><body><div id='root'><h1>Pricing</h1><p>" + ("Plans and prices. " * 40) + "</p>"
+    "</div></body></html>"
+)
+
+
+def test_a_served_page_is_not_graded_as_a_shell() -> None:
+    """Running the check on a URL is the obvious thing to do, and a served page
+    legitimately has a filled mount node and its own canonical. Grading that as
+    a shell reports four problems that are not problems."""
+    findings = check_shell(RENDERED)
+    assert [f.code for f in findings] == ["W_NOT_A_SHELL"]
+    assert "dist/index.html rather than a URL" in findings[0].message
+
+
+def test_a_shell_with_a_spinner_is_still_graded_as_a_shell() -> None:
+    """A loading state is short; a rendered page is not. The line between them
+    is what tells a build's shell from a served page."""
+    html = SHELL.replace("<div id='root'></div>", "<div id='root'><p>Loading…</p></div>")
+    assert "E_MOUNT_NOT_EMPTY" in codes(html)
+
+
+def test_as_shell_grades_it_anyway() -> None:
+    findings = check_shell(RENDERED, as_shell=True)
+    assert "E_MOUNT_NOT_EMPTY" in [f.code for f in findings]
+
+
+def test_the_command_takes_as_shell(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "page.html"
+    path.write_text(RENDERED, encoding="utf-8")
+    assert main(["shell", "check", str(path)]) == 0
+    assert "W_NOT_A_SHELL" in capsys.readouterr().out
+    assert main(["shell", "check", str(path), "--as-shell"]) == 1

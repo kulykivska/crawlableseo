@@ -129,7 +129,7 @@ def _shell_check(args: argparse.Namespace) -> int:
     except (OSError, urllib.error.URLError) as exc:
         print(f"{args.target}: cannot read: {exc}", file=sys.stderr)
         return EXIT_UNUSABLE
-    findings = check_shell(text, mount_id=args.mount_id)
+    findings = check_shell(text, mount_id=args.mount_id, as_shell=args.as_shell)
     return _report(
         args.target, findings, strict=args.strict, as_json=args.json, subject="shell"
     )
@@ -172,6 +172,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     shell_check.add_argument("target", help="path, http(s) URL, or - for stdin")
     shell_check.add_argument("--mount-id", default="root", help="id of the mount node")
+    shell_check.add_argument(
+        "--as-shell",
+        action="store_true",
+        help="grade it as a shell even if it looks like an already-filled page",
+    )
     _add_check_flags(shell_check)
     shell_check.set_defaults(func=_shell_check)
 
