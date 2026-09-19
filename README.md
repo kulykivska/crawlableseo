@@ -183,6 +183,10 @@ is invisible in a browser:
 - **A `<base>` tag**, which changes what every relative URL in the injected block
   resolves to.
 
+Point it at the built file, not at a URL. A served page legitimately has a
+filled mount node and its own canonical, so the check says so rather than
+reporting four problems that are not problems; `--as-shell` grades it anyway.
+
 ## Check an llms.txt
 
 `llms.txt` is a map of the site written for models. A file that is malformed is
