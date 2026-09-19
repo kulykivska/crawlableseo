@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "crawlableseo"
-version = "0.2.0"
+version = "0.3.0"
 description = "Make a client-rendered SPA crawlable from its own HTML shell: meta tags, JSON-LD, robots.txt, sitemap.xml and llms.txt from one declaration."
 readme = "README.md"
 requires-python = ">=3.10"

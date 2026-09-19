@@ -11,8 +11,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-ERROR = "error"
-WARNING = "warning"
+from .findings import ERROR, WARNING, Finding, is_valid
+
+__all__ = ["ERROR", "WARNING", "Finding", "check_llms_txt", "is_valid"]
 
 # "- [label](url): description". The spec says a colon; files in the wild use a
 # dash just as often, and the link is what matters. Only at the left margin: an
@@ -28,18 +29,6 @@ HEADING = re.compile(r"^(?P<hashes>#{1,6})\s*(?P<text>.*)$")
 # The section the spec sets aside for links a model may skip. It says what may
 # be dropped when context runs short, which only works if it is last.
 OPTIONAL = "optional"
-
-
-@dataclass(frozen=True)
-class Finding:
-    level: str
-    code: str
-    line: int
-    message: str
-
-    def __str__(self) -> str:
-        where = f"line {self.line}" if self.line else "file"
-        return f"{where}: {self.level} [{self.code}] {self.message}"
 
 
 def check_llms_txt(text: str) -> list[Finding]:
@@ -295,11 +284,3 @@ def _whole_file(state: _Scan) -> list[Finding]:
             )
         )
     return findings
-
-
-def is_valid(findings: list[Finding], *, strict: bool = False) -> bool:
-    """Whether the file passes. Warnings only count when asked for."""
-    levels = {f.level for f in findings}
-    if ERROR in levels:
-        return False
-    return not (strict and WARNING in levels)

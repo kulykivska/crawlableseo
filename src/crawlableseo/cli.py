@@ -7,6 +7,7 @@ prerender - sit beside these rather than lengthening one list of verbs.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
 import urllib.error
@@ -14,7 +15,10 @@ import urllib.request
 from pathlib import Path
 
 from . import __version__
-from .llmscheck import ERROR, WARNING, Finding, check_llms_txt, is_valid
+from .findings import ERROR, WARNING, Finding, is_valid
+from .llmscheck import check_llms_txt
+from .prerender import prerender
+from .shellcheck import check_shell
 
 # Fetching is stdlib only: a validator that pulls in an HTTP client is a
 # dependency everyone who only validates files pays for.
@@ -44,7 +48,14 @@ def read_target(target: str) -> str:
     return Path(target).read_text(encoding="utf-8")
 
 
-def _report(target: str, findings: list[Finding], *, strict: bool, as_json: bool) -> int:
+def _report(
+    target: str,
+    findings: list[Finding],
+    *,
+    strict: bool,
+    as_json: bool,
+    subject: str = "llms.txt",
+) -> int:
     passed = is_valid(findings, strict=strict)
     if as_json:
         print(
@@ -76,10 +87,52 @@ def _report(target: str, findings: list[Finding], *, strict: bool, as_json: bool
     errors = sum(1 for f in findings if f.level == ERROR)
     warnings = sum(1 for f in findings if f.level == WARNING)
     if not findings:
-        print(f"{target}: valid llms.txt, nothing to report")
+        print(f"{target}: valid {subject}, nothing to report")
     else:
         print(f"{target}: {errors} error(s), {warnings} warning(s)")
     return EXIT_OK if passed else EXIT_FAILED
+
+
+def load_site(spec: str) -> object:
+    """Import `module:attribute`, the way a WSGI server names an app.
+
+    The declaration is Python - it has to be, because a dynamic route is a
+    function - so a command that prerenders it has to import it.
+    """
+    module_name, _, attribute = spec.partition(":")
+    if not attribute:
+        raise ValueError(f"{spec!r} must be module:attribute, e.g. app.seo:site")
+    if str(Path.cwd()) not in sys.path:
+        sys.path.insert(0, str(Path.cwd()))
+    module = importlib.import_module(module_name)
+    try:
+        return getattr(module, attribute)
+    except AttributeError:
+        raise ValueError(f"{module_name} has no attribute {attribute!r}") from None
+
+
+def _prerender(args: argparse.Namespace) -> int:
+    site = load_site(args.site)
+    result = prerender(
+        site,  # type: ignore[arg-type]
+        Path(args.out),
+        robots=not args.no_robots,
+        sitemap=not args.no_sitemap,
+    )
+    print(result.describe())
+    return EXIT_OK
+
+
+def _shell_check(args: argparse.Namespace) -> int:
+    try:
+        text = read_target(args.target)
+    except (OSError, urllib.error.URLError) as exc:
+        print(f"{args.target}: cannot read: {exc}", file=sys.stderr)
+        return EXIT_UNUSABLE
+    findings = check_shell(text, mount_id=args.mount_id)
+    return _report(
+        args.target, findings, strict=args.strict, as_json=args.json, subject="shell"
+    )
 
 
 def _llms_check(args: argparse.Namespace) -> int:
@@ -89,6 +142,13 @@ def _llms_check(args: argparse.Namespace) -> int:
         print(f"{args.target}: cannot read: {exc}", file=sys.stderr)
         return EXIT_UNUSABLE
     return _report(args.target, check_llms_txt(text), strict=args.strict, as_json=args.json)
+
+
+def _add_check_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--strict", action="store_true", help="fail on warnings as well as errors"
+    )
+    parser.add_argument("--json", action="store_true", help="machine-readable output")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -101,17 +161,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check = llms.add_parser("check", help="validate an llms.txt file or URL")
     check.add_argument("target", help="path, http(s) URL, or - for stdin")
-    check.add_argument(
-        "--strict", action="store_true", help="fail on warnings as well as errors"
-    )
-    check.add_argument("--json", action="store_true", help="machine-readable output")
+    _add_check_flags(check)
     check.set_defaults(func=_llms_check)
+
+    shell = groups.add_parser("shell", help="the built HTML shell").add_subparsers(
+        dest="command", required=True
+    )
+    shell_check = shell.add_parser(
+        "check", help="what will go wrong when this shell is filled"
+    )
+    shell_check.add_argument("target", help="path, http(s) URL, or - for stdin")
+    shell_check.add_argument("--mount-id", default="root", help="id of the mount node")
+    _add_check_flags(shell_check)
+    shell_check.set_defaults(func=_shell_check)
+
+    pre = groups.add_parser("prerender", help="write the site out as files for a static host")
+    pre.add_argument("--site", required=True, help="module:attribute holding the Site")
+    pre.add_argument("--out", required=True, help="directory to write into")
+    pre.add_argument("--no-robots", action="store_true")
+    pre.add_argument("--no-sitemap", action="store_true")
+    pre.set_defaults(func=_prerender)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    result: int = args.func(args)
+    try:
+        result: int = args.func(args)
+    except (OSError, ValueError, ImportError) as exc:
+        # A missing module, a site that is not where it was said to be, an
+        # unreadable file: the operator's problem to fix, not a traceback.
+        print(f"{exc}", file=sys.stderr)
+        return EXIT_UNUSABLE
     return result
 
 

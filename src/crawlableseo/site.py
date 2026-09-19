@@ -218,6 +218,17 @@ class Site:
         )
         return html, page.status
 
+    def routes(self) -> list[tuple[str, dict[str, str]]]:
+        """Every URL this site can name: static pages, then each dynamic
+        route's own list. What a prerender writes, and what a crawl would find."""
+        found: list[tuple[str, dict[str, str]]] = [
+            (path, dict(page.params)) for path, page in sorted(self._pages.items())
+        ]
+        for entry in self._dynamic:
+            for url in entry.urls() if entry.urls else ():
+                found.append((_normalise(url.path), dict(url.params or {})))
+        return found
+
     def sitemap_entries(self) -> list[SitemapEntry]:
         entries = [
             SitemapEntry(

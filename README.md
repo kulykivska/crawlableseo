@@ -143,6 +143,46 @@ its outgoing links are still worth crawling. They are separate flags.
 mounts, the page paints, empties, then repaints: on one site that measured a
 cumulative layout shift of 0.28. Let the framework replace it.
 
+## A build with no server
+
+`prerender` writes the whole site out as files, so a static host serves the same
+per-URL tags the server integration would:
+
+```console
+$ crawlableseo prerender --site app.seo:site --out dist
+14 file(s) written
+skipped /product: has query parameters; a static host cannot route them
+```
+
+One `index.html` per route (`/pricing` becomes `dist/pricing/index.html`, which
+is what every static host serves at `/pricing`), plus `robots.txt` and
+`sitemap.xml` from the same declaration. A URL that carries query parameters is
+skipped and said out loud: no static host can route `/product?id=7`, and writing
+a file nothing will ever serve would be worse than saying so.
+
+## Check the shell before you ship it
+
+```console
+$ crawlableseo shell check dist/index.html
+dist/index.html:7: error [E_MOUNT_NOT_EMPTY] <div id="root"> is not empty; the crawlable
+  body is only written into an empty mount node
+dist/index.html:5: warning [W_SHELL_CANONICAL] the shell already carries a canonical link
+```
+
+Every check comes from how the injection actually works, and every one of them
+is invisible in a browser:
+
+- **The mount node is not empty.** A loading spinner in the built markup means
+  the crawlable body is never written - the fill only touches an empty node -
+  and the page still looks perfect.
+- **The shell was already rendered.** A build that captured one rendered page
+  carries the marker, and then every URL serves that one page's tags.
+- **No `<head>`, or no mount node at all.**
+- **A canonical, robots meta or Open Graph tag already in the shell**, which the
+  injected block will duplicate.
+- **A `<base>` tag**, which changes what every relative URL in the injected block
+  resolves to.
+
 ## Check an llms.txt
 
 `llms.txt` is a map of the site written for models. A file that is malformed is
