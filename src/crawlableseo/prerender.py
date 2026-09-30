@@ -32,7 +32,11 @@ def file_for(out: Path, path: str) -> Path:
     `/pricing` without a redirect and without `.html` in the address bar.
     """
     clean = path.strip("/")
-    return out / "index.html" if not clean else out / clean / "index.html"
+    target = out / "index.html" if not clean else out / clean / "index.html"
+    # A slug like "../../x" from route data must not write outside `out`.
+    if not target.resolve().is_relative_to(out.resolve()):
+        raise ValueError(f"{path} would be written outside {out}")
+    return target
 
 
 def prerender(
@@ -53,7 +57,11 @@ def prerender(
         if status != 200:
             result.skipped.append((path, f"resolves to {status}"))
             continue
-        target = file_for(out, path)
+        try:
+            target = file_for(out, path)
+        except ValueError as exc:
+            result.skipped.append((path, str(exc)))
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(html, encoding="utf-8")
         result.written.append(str(target.relative_to(out)))

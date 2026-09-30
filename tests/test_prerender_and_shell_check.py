@@ -117,6 +117,12 @@ def test_the_file_layout_is_what_a_static_host_expects(path: str, expected: str)
     assert file_for(Path("out"), path) == Path("out") / expected
 
 
+@pytest.mark.parametrize("path", ["/../escaped", "/a/../../escaped"])
+def test_a_path_cannot_climb_out_of_the_output_directory(tmp_path: Path, path: str) -> None:
+    with pytest.raises(ValueError):
+        file_for(tmp_path / "out", path)
+
+
 def test_robots_and_sitemap_can_be_left_out(tmp_path: Path) -> None:
     prerender(build_site(), tmp_path, robots=False, sitemap=False)
     assert not (tmp_path / "robots.txt").exists()
